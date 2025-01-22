@@ -4,6 +4,7 @@
 #' [Matrix::sparseMatrix()].
 #' 
 #' @param x a data frame or tibble with sparse columns.
+#' @inheritParams rlang::args_error_context
 #'
 #' @details
 #' No checking is currently do to `x` to determine whether it contains sparse
@@ -22,22 +23,26 @@
 #' res <- coerce_to_sparse_matrix(sparse_tbl)
 #' res
 #' @export
-coerce_to_sparse_matrix <- function(x) {
+coerce_to_sparse_matrix <- function(x, call = rlang::caller_env(0)) {
   rlang::check_installed("Matrix")
 
   if (!inherits(x, "data.frame")) {
     cli::cli_abort(
-      "{.arg x} must be a {.cls data.frame}, not {.obj_type_friendly {x}}."
+      "{.arg x} must be a {.cls data.frame}, not {.obj_type_friendly {x}}.",
+      call = call
     )
   }
 
   if (!all(vapply(x, is.numeric, logical(1)))) {
     offenders <- which(!vapply(x, is.numeric, logical(1)))
     offenders <- names(x)[offenders]
-    cli::cli_abort(c(
-      x = "All columns of {.arg x} must be numeric.",
-      i = "Non-numeric columns: {.field {offenders}}."
-    ))
+    cli::cli_abort(
+      c(
+        x = "All columns of {.arg x} must be numeric.",
+        i = "Non-numeric columns: {.field {offenders}}."
+      ),
+      call = call
+    )
   }
 
   if (!any(vapply(x, is_sparse_numeric, logical(1)))) {
@@ -62,11 +67,27 @@ coerce_to_sparse_matrix <- function(x) {
   all_positions <- unlist(all_positions, use.names = FALSE)
   all_values <- unlist(all_values, use.names = FALSE)
 
+  # TODO: maybe faster to do this above?
+  non_zero <- all_values != 0
+  all_rows <- all_rows[non_zero]
+  all_positions <- all_positions[non_zero]
+  all_values <- all_values[non_zero]
+
+  n_row <- nrow(x)
+  n_col <- ncol(x)
+
+  if (identical(rownames(x), as.character(seq_len(nrow(x))))) {
+    row_names <- NULL
+  } else {
+    row_names <- rownames(x)
+  }
+
   res <- Matrix::sparseMatrix(
     i = all_positions,
     j = all_rows,
     x = all_values,
-    dimnames = list(rownames(x), colnames(x))
+    dims = c(n_row, n_col),
+    dimnames = list(row_names, colnames(x))
   )
   res
 }
@@ -76,6 +97,7 @@ coerce_to_sparse_matrix <- function(x) {
 #' Turning a sparse matrix into a tibble.
 #' 
 #' @param x sparse matrix. 
+#' @inheritParams rlang::args_error_context
 #' 
 #' @details
 #' The only requirement from the sparse matrix is that it contains column names.
@@ -96,12 +118,13 @@ coerce_to_sparse_matrix <- function(x) {
 #' # All columns are sparse
 #' vapply(res, is_sparse_vector, logical(1))
 #' @export
-coerce_to_sparse_tibble <- function(x) {
+coerce_to_sparse_tibble <- function(x, call = rlang::caller_env(0)) {
   rlang::check_installed("tibble")
 
   if (!any(methods::is(x) == "sparseMatrix")) {
     cli::cli_abort(
-      "{.arg x} must be a {.cls sparseMatrix}, not {.obj_type_friendly {x}}."
+      "{.arg x} must be a {.cls sparseMatrix}, not {.obj_type_friendly {x}}.",
+      call = call
     )
   }
 
@@ -112,7 +135,8 @@ coerce_to_sparse_tibble <- function(x) {
 
   if (is.null(colnames(x))) {
     cli::cli_abort(
-      "{.arg x} must have column names."
+      "{.arg x} must have column names.",
+      call = call
     )
   }
 
@@ -126,6 +150,7 @@ coerce_to_sparse_tibble <- function(x) {
 #' Turning a sparse matrix into a data frame
 #' 
 #' @param x sparse matrix. 
+#' @inheritParams rlang::args_error_context
 #' 
 #' @details
 #' The only requirement from the sparse matrix is that it contains column names.
@@ -146,10 +171,11 @@ coerce_to_sparse_tibble <- function(x) {
 #' # All columns are sparse
 #' vapply(res, is_sparse_vector, logical(1))
 #' @export
-coerce_to_sparse_data_frame <- function(x) {
+coerce_to_sparse_data_frame <- function(x, call = rlang::caller_env(0)) {
   if (!any(methods::is(x) == "sparseMatrix")) {
     cli::cli_abort(
-      "{.arg x} must be a {.cls sparseMatrix}, not {.obj_type_friendly {x}}."
+      "{.arg x} must be a {.cls sparseMatrix}, not {.obj_type_friendly {x}}.",
+      call = call
     )
   }
 
@@ -160,7 +186,8 @@ coerce_to_sparse_data_frame <- function(x) {
 
   if (is.null(colnames(x))) {
     cli::cli_abort(
-      "{.arg x} must have column names."
+      "{.arg x} must have column names.",
+      call = call
     )
   }
 
@@ -171,22 +198,31 @@ coerce_to_sparse_data_frame <- function(x) {
 
 .sparse_matrix_to_list <- function(x) {
   values <- x@x
-  positions <- x@i
-  
+  x_positions <- x@i
+  n_nonzero <- diff(x@p)
+
   x_length <- nrow(x)
   
   res <- list()
-  for (i in seq_len(ncol(x))) {
-    start <- x@p[i] + 1
-    end <- x@p[i + 1]
-  
-    index <- seq(start, end)
+  start <- 1
+  for (i in seq_along(n_nonzero)) {
+    if (n_nonzero[i] == 0) {
+      res[[i]] <- sparse_double(
+        values = double(),
+        positions = double(),
+        length = x_length
+      )
+      next
+    } 
+
+    index <- seq(start, start + n_nonzero[i] - 1)
   
     res[[i]] <- sparse_double(
       values = values[index],
-      positions = positions[index] + 1,
+      positions = x_positions[index] + 1,
       length = x_length
     )
+    start <- start + n_nonzero[i]
   }
   
   names(res) <- colnames(x)

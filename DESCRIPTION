@@ -1,6 +1,6 @@
 Package: sparsevctrs
 Title: Sparse Vectors for Use in Data Frames
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Emil", "Hvitfeldt", , "emil.hvitfeldt@posit.co", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0679-1945")),
@@ -25,12 +25,12 @@ Config/Needs/website: tidyverse/tidytemplate, rmarkdown, lobstr,
         ggplot2, bench, tidyr, ggbeeswarm
 Config/testthat/edition: 3
 Encoding: UTF-8
-RoxygenNote: 7.3.1.9000
+RoxygenNote: 7.3.2
 NeedsCompilation: yes
-Packaged: 2024-05-28 23:58:30 UTC; emilhvitfeldt
+Packaged: 2025-01-22 20:43:32 UTC; emilhvitfeldt
 Author: Emil Hvitfeldt [aut, cre] (<https://orcid.org/0000-0002-0679-1945>),
   Davis Vaughan [ctb],
   Posit Software, PBC [cph, fnd]
 Maintainer: Emil Hvitfeldt <emil.hvitfeldt@posit.co>
 Repository: CRAN
-Date/Publication: 2024-05-31 18:50:03 UTC
+Date/Publication: 2025-01-22 21:00:01 UTC

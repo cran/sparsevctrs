@@ -68,6 +68,18 @@ SEXP ffi_extract_altrep_class(SEXP x) {
   return ATTRIB(ALTREP_CLASS(x));
 }
 
+static inline SEXP altrep_package(SEXP x) {
+  return VECTOR_ELT(Rf_PairToVectorList(ATTRIB(ALTREP_CLASS(x))), 1);
+}
+
+SEXP ffi_is_sparse_vector(SEXP x) {
+  if (!is_altrep(x)) {
+    return (Rf_ScalarLogical(FALSE));
+  }
+
+  return Rf_ScalarLogical(altrep_package(x) == Rf_install("sparsevctrs"));
+}
+
 static inline R_xlen_t midpoint(R_xlen_t lhs, R_xlen_t rhs) {
   return lhs + (rhs - lhs) / 2;
 }
@@ -121,4 +133,32 @@ bool is_index_handleable(SEXP x) {
   }
 
   return true;
+}
+
+void verbose_materialize(void) {
+  SEXP option = Rf_GetOption1(Rf_install("sparsevctrs.verbose_materialize"));
+
+  if (!Rf_isNull(option)) {
+    if (TYPEOF(option) == LGLSXP) {
+      Rprintf("sparsevctrs: Sparse vector materialized\n");
+    }
+    if (TYPEOF(option) == REALSXP) {
+      if (*REAL_RO(option) == 3) {
+        Rf_error("sparsevctrs: Sparse vector materialized");
+      } else if (*REAL_RO(option) == 2) {
+        Rf_warning("sparsevctrs: Sparse vector materialized");
+      } else {
+        Rprintf("sparsevctrs: Sparse vector materialized\n");
+      }
+    }
+    if (TYPEOF(option) == INTSXP) {
+      if (*INTEGER_RO(option) == 3) {
+        Rf_error("sparsevctrs: Sparse vector materialized");
+      } else if (*INTEGER_RO(option) == 2) {
+        Rf_warning("sparsevctrs: Sparse vector materialized");
+      } else {
+        Rprintf("sparsevctrs: Sparse vector materialized\n");
+      }
+    }
+  }
 }
