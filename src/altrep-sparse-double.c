@@ -12,6 +12,20 @@ SEXP ffi_altrep_new_sparse_double(SEXP x) {
   return R_new_altrep(altrep_sparse_double_class, x, R_NilValue);
 }
 
+SEXP new_sparse_double(SEXP val, SEXP pos, SEXP len, SEXP def) {
+  SEXP list = PROTECT(Rf_allocVector(VECSXP, 4));
+
+  SET_VECTOR_ELT(list, 0, val);
+  SET_VECTOR_ELT(list, 1, pos);
+  SET_VECTOR_ELT(list, 2, len);
+  SET_VECTOR_ELT(list, 3, def);
+
+  SEXP out = ffi_altrep_new_sparse_double(list);
+
+  UNPROTECT(1);
+  return out;
+}
+
 SEXP alrep_sparse_double_Materialize(SEXP x) {
   SEXP out = R_altrep_data2(x);
 
@@ -55,7 +69,7 @@ SEXP alrep_sparse_double_Materialize(SEXP x) {
 // ALTVEC
 
 void* altrep_sparse_double_Dataptr(SEXP x, Rboolean writeable) {
-  return DATAPTR(alrep_sparse_double_Materialize(x));
+  return SVCTRS_DATAPTR(alrep_sparse_double_Materialize(x));
 }
 
 const void* altrep_sparse_double_Dataptr_or_null(SEXP x) {
@@ -64,7 +78,7 @@ const void* altrep_sparse_double_Dataptr_or_null(SEXP x) {
   if (out == R_NilValue) {
     return NULL;
   } else {
-    return DATAPTR(out);
+    return SVCTRS_DATAPTR(out);
   }
 }
 

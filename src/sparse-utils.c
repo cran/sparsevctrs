@@ -80,6 +80,14 @@ SEXP ffi_is_sparse_vector(SEXP x) {
   return Rf_ScalarLogical(altrep_package(x) == Rf_install("sparsevctrs"));
 }
 
+SEXP ffi_is_altrep_non_sparse_vector(SEXP x) {
+  if (!is_altrep(x)) {
+    return (Rf_ScalarLogical(FALSE));
+  }
+
+  return Rf_ScalarLogical(altrep_package(x) != Rf_install("sparsevctrs"));
+}
+
 static inline R_xlen_t midpoint(R_xlen_t lhs, R_xlen_t rhs) {
   return lhs + (rhs - lhs) / 2;
 }
@@ -159,6 +167,71 @@ void verbose_materialize(void) {
       } else {
         Rprintf("sparsevctrs: Sparse vector materialized\n");
       }
+    }
+  }
+}
+
+void sort_pos_and_val(SEXP pos, SEXP val) {
+  R_xlen_t len = Rf_length(pos);
+
+  // nothing to sort -> stop early
+  if (len < 2) {
+    return;
+  }
+
+  SEXP index = Rf_allocVector(INTSXP, len);
+  SEXP sorted_pos = Rf_allocVector(INTSXP, len);
+
+  // Initialize pairs array
+  for (R_xlen_t i = 0; i < len; i++) {
+    SET_INTEGER_ELT(sorted_pos, i, INTEGER_ELT(pos, i));
+    SET_INTEGER_ELT(index, i, i);
+  }
+
+  // Sort pairs based on values
+  for (int i = 0; i < len - 1; i++) {
+    for (int j = 0; j < len - i - 1; j++) {
+      if (INTEGER_ELT(sorted_pos, j) > INTEGER_ELT(sorted_pos, j + 1)) {
+        // Swap pairs
+        int temp_pos = INTEGER_ELT(sorted_pos, j);
+        int temp_index = INTEGER_ELT(index, j);
+
+        SET_INTEGER_ELT(sorted_pos, j, INTEGER_ELT(sorted_pos, j + 1));
+        SET_INTEGER_ELT(sorted_pos, j + 1, temp_pos);
+
+        SET_INTEGER_ELT(index, j, INTEGER_ELT(index, j + 1));
+        SET_INTEGER_ELT(index, j + 1, temp_index);
+      }
+    }
+  }
+
+  for (R_xlen_t i = 0; i < len; i++) {
+    SET_INTEGER_ELT(pos, i, INTEGER_ELT(sorted_pos, i));
+  }
+
+  if (Rf_isInteger(val)) {
+    SEXP sorted_val = Rf_allocVector(INTSXP, len);
+
+    for (R_xlen_t i = 0; i < len; i++) {
+      int cur_index = INTEGER_ELT(index, i);
+
+      SET_INTEGER_ELT(sorted_val, i, INTEGER_ELT(val, cur_index));
+    }
+
+    for (R_xlen_t i = 0; i < len; i++) {
+      SET_INTEGER_ELT(val, i, INTEGER_ELT(sorted_val, i));
+    }
+  } else {
+    SEXP sorted_val = Rf_allocVector(REALSXP, len);
+
+    for (R_xlen_t i = 0; i < len; i++) {
+      int cur_index = INTEGER_ELT(index, i);
+
+      SET_REAL_ELT(sorted_val, i, REAL_ELT(val, cur_index));
+    }
+
+    for (R_xlen_t i = 0; i < len; i++) {
+      SET_REAL_ELT(val, i, REAL_ELT(sorted_val, i));
     }
   }
 }

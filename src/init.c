@@ -2,6 +2,7 @@
 #include "sparse-extractors.h"
 #include "sparse-utils.h"
 #include "sparse-dummy.h"
+#include "sparse-arithmatic.h"
 
 // Defined in altrep-sparse-double.c
 extern SEXP ffi_altrep_new_sparse_double(SEXP);
@@ -35,8 +36,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"ffi_altrep_sparse_default", (DL_FUNC) &ffi_altrep_sparse_default, 1},
     {"ffi_extract_altrep_class", (DL_FUNC) &ffi_extract_altrep_class, 1},
     {"ffi_is_sparse_vector", (DL_FUNC) &ffi_is_sparse_vector, 1},
+    {"ffi_is_altrep_non_sparse_vector",
+     (DL_FUNC) &ffi_is_altrep_non_sparse_vector,
+     1},
     {"ffi_sparse_dummy", (DL_FUNC) &ffi_sparse_dummy, 4},
     {"ffi_sparse_dummy_na", (DL_FUNC) &ffi_sparse_dummy_na, 4},
+    {"ffi_sparse_multiplication", (DL_FUNC) &ffi_sparse_multiplication, 2},
     {NULL, NULL, 0}
 };
 
