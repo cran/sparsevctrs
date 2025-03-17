@@ -1,7 +1,7 @@
-f55351a546c5b44af7229bdcf1c59c59 *DESCRIPTION
+96ba8955fa28dc5050857fbe346b03ba *DESCRIPTION
 b832734d304931a348bf15d62146cfee *LICENSE
 50b48111cebca865c1a02283edd02902 *NAMESPACE
-03909b25c6b815fd4028c30b87a954d0 *NEWS.md
+b00e9b3af37bb45b329a1a17c0d58c2d *NEWS.md
 bad9969259d1c1abd5359b5fd4563bf0 *R/arithmatic.R
 25f4f0a0bd351323bc603aee05f8ad13 *R/coerce-vector.R
 f8ad3bbe818094e400b2cebe32331856 *R/coerce.R
@@ -67,7 +67,7 @@ f2d1c022c28f26f8402bf2a0e67bda42 *src/altrep-sparse-double.c
 ddc29e197ccaa3546b09c271d49c7796 *src/altrep-sparse-logical.c
 96b8bb35599ca425153fbc4f33109fad *src/altrep-sparse-string.c
 956a9ead5906f9df9540aed9e53d1b72 *src/init.c
-79ab095a0668a9295bfad02f112fcdcc *src/sparse-arithmatic.c
+8daeafab24fb4a20f2f44c1f9908a747 *src/sparse-arithmatic.c
 81f4ad4ac4e37039070d87c28d61a231 *src/sparse-arithmatic.h
 256ae7a48cfa4932572b98480c927f3e *src/sparse-dummy.c
 c0b2c933ac676c8709d25ce083aa88b0 *src/sparse-dummy.h
