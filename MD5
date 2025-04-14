@@ -1,10 +1,10 @@
-55e30d9898e133ce68cbc3e8b1616fe6 *DESCRIPTION
+fb585ef927ea27bd86e2748dedec6aec *DESCRIPTION
 b832734d304931a348bf15d62146cfee *LICENSE
 50b48111cebca865c1a02283edd02902 *NAMESPACE
-bf48f36ab971b87d0d67d7d12effb9c9 *NEWS.md
+9026788f3a07735d74864ec141ec3b6b *NEWS.md
 bad9969259d1c1abd5359b5fd4563bf0 *R/arithmatic.R
 25f4f0a0bd351323bc603aee05f8ad13 *R/coerce-vector.R
-f8ad3bbe818094e400b2cebe32331856 *R/coerce.R
+28b6f49058771b229a8fc157e239923d *R/coerce.R
 2fce95129dbe43abda830a01a8921d4b *R/extractors.R
 fcc1ebdb8d0e42bdada0f14695cce58b *R/has_sparse_elements.R
 00e867dc72881998774cb0a0aa17f920 *R/import-standalone-obj-type.R
@@ -85,7 +85,7 @@ fdcb1733cb0a6677d5c137236eed0c7c *tests/testthat/_snaps/sparse_integer.md
 df7ca6ccb30c42568877e1903d348942 *tests/testthat/_snaps/sparsity.md
 ed644fb44b76cd945c5a7da0c2a425ac *tests/testthat/test-arithmatic.R
 7c8a7c7bd631f2f162ae5061047b8c4d *tests/testthat/test-coerce-vector.R
-178b9872e24245d438bf732d965b39fd *tests/testthat/test-coerce.R
+a1c2a4c82293a5060f91d757e8d1f70c *tests/testthat/test-coerce.R
 2de166470bde87f7914abfbba12b9fa1 *tests/testthat/test-extractors.R
 4c7264534c25cae760cf85a191e01bd7 *tests/testthat/test-has_sparse_elements.R
 1e7955dcb4d1bb6b7870df7a5c6cbf2a *tests/testthat/test-sparse_character.R
