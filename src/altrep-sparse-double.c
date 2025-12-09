@@ -65,11 +65,15 @@ SEXP alrep_sparse_double_Materialize(SEXP x) {
   return out;
 }
 
+SEXP ffi_altrep_sparse_double_materialize(SEXP x) {
+  return alrep_sparse_double_Materialize(x);
+}
+
 // -----------------------------------------------------------------------------
 // ALTVEC
 
 void* altrep_sparse_double_Dataptr(SEXP x, Rboolean writeable) {
-  return SVCTRS_DATAPTR(alrep_sparse_double_Materialize(x));
+  return DATAPTR_RW(alrep_sparse_double_Materialize(x));
 }
 
 const void* altrep_sparse_double_Dataptr_or_null(SEXP x) {
@@ -78,7 +82,7 @@ const void* altrep_sparse_double_Dataptr_or_null(SEXP x) {
   if (out == R_NilValue) {
     return NULL;
   } else {
-    return SVCTRS_DATAPTR(out);
+    return DATAPTR_RW(out);
   }
 }
 
@@ -221,6 +225,12 @@ SEXP altrep_sparse_double_Duplicate(SEXP x, Rboolean deep) {
 // ALTREAL
 
 static double altrep_sparse_double_Elt(SEXP x, R_xlen_t i) {
+  SEXP data2 = R_altrep_data2(x);
+
+  if (data2 != R_NilValue) {
+    return REAL_ELT(data2, i);
+  }
+
   SEXP val = extract_val(x);
 
   SEXP pos = extract_pos(x);
