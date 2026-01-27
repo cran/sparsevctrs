@@ -1,7 +1,7 @@
-aad7453ea369a5f0a5f9e6c2f78b5804 *DESCRIPTION
+e4afed96d75541c8e8d2506b69b05729 *DESCRIPTION
 a64b933f1e73fcd07eb9ee36da277c9d *LICENSE
 50b48111cebca865c1a02283edd02902 *NAMESPACE
-9ce216d7e659b8bf9ddc2f31f6fc03b3 *NEWS.md
+88af621318e5c4ea3b472a0889d7d328 *NEWS.md
 bad9969259d1c1abd5359b5fd4563bf0 *R/arithmatic.R
 25f4f0a0bd351323bc603aee05f8ad13 *R/coerce-vector.R
 28b6f49058771b229a8fc157e239923d *R/coerce.R
@@ -26,7 +26,7 @@ ea62e50bf6ecea12ab23416f65a17e5a *R/sparse_var.R
 56a74c2c4df54ba77227b5d6b8b0af5a *R/sparse_which_na.R
 61821d602c72a0ffb131fb2e78606daf *R/sparsevctrs-package.R
 b83c0653d0af514ae5bf97d1b7cca698 *R/sparsity.R
-eb965dccc49282d95a20718c7ab723a6 *R/type-predicates.R
+946759ec82551ed8da27b8cdc17a0560 *R/type-predicates.R
 787f0887514b4db27de367153abb84ac *R/validate-input.R
 1668e58968d29ba7a1cb902da761ff11 *README.md
 81d88c8e1985bf07a4b8a4983056673a *build/vignette.rds
@@ -73,8 +73,8 @@ eff3c9f6c3875a6302fe5d3797e66e87 *src/altrep-sparse-logical.c
 c0b2c933ac676c8709d25ce083aa88b0 *src/sparse-dummy.h
 aaa11683a74953af6afdca569ef68238 *src/sparse-extractors.c
 48959c1d662835c3c714540c68b8bced *src/sparse-extractors.h
-9d52bd50797cb060b27c04dfa2a7e4a7 *src/sparse-utils.c
-feff9fa9594bcf9b8310b1445721616c *src/sparse-utils.h
+922280e9c9dedc753404b2032429b740 *src/sparse-utils.c
+2f843821403d515867e0a7a823084105 *src/sparse-utils.h
 da33a9c985baf18422f6b14b86bcd957 *tests/testthat.R
 d4ca423ad880b8d8f931899cfb402512 *tests/testthat/_snaps/coerce.md
 a44f00c0616a7d54887cb10e71f02d8f *tests/testthat/_snaps/sparse_character.md
