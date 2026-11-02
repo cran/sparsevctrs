@@ -3,10 +3,10 @@
 #' Construction of vectors where only values and positions are recorded. The
 #' Length and default values determine all other information.
 #'
-#' @param values integer vector, values of non-zero entries.
-#' @param positions integer vector, indices of non-zero entries.
+#' @param values character vector, values of non-default entries.
+#' @param positions integer vector, indices of non-default entries.
 #' @param length integer value, Length of vector.
-#' @param default integer value, value at indices not specified by `positions`.
+#' @param default character value, value at indices not specified by `positions`.
 #'   Defaults to `""`. Cannot be `NA`.
 #'
 #' @details
@@ -77,9 +77,9 @@ new_sparse_character <- function(values, positions, length, default) {
     default
   )
 
-  .Call(ffi_altrep_new_sparse_string, x)
+  .Call(ffi_sparse_altrep_new_sparse_string, x)
 }
 
 sparse_string_materialize <- function(x) {
-  .Call(ffi_altrep_sparse_string_materialize, x)
+  .Call(ffi_sparse_altrep_sparse_string_materialize, x)
 }

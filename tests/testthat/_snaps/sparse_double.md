@@ -259,10 +259,26 @@
       Warning:
       no non-missing arguments to min; returning Inf
 
+---
+
+    Code
+      res <- min(sparse_double(NA, 1, 1), na.rm = TRUE)
+    Condition
+      Warning:
+      no non-missing arguments to min; returning Inf
+
 # max method works with sparse_double()
 
     Code
       res <- max(sparse_double(integer(), integer(), 0))
+    Condition
+      Warning:
+      no non-missing arguments to max; returning -Inf
+
+---
+
+    Code
+      res <- max(sparse_double(NA, 1, 1), na.rm = TRUE)
     Condition
       Warning:
       no non-missing arguments to max; returning -Inf
@@ -291,6 +307,30 @@
       Error in `sparse_double()`:
       x `values` value must not be equal to the default 1.
       i 1 values at index: 1 and 2.
+
+---
+
+    Code
+      sparse_double(1, 1, 10, default = Inf)
+    Condition
+      Error in `sparse_double()`:
+      ! `default` must be a number, not `Inf`.
+
+---
+
+    Code
+      sparse_double(1, 1, 10, default = -Inf)
+    Condition
+      Error in `sparse_double()`:
+      ! `default` must be a number, not `-Inf`.
+
+---
+
+    Code
+      sparse_double(1, 1, 10, default = NaN)
+    Condition
+      Error in `sparse_double()`:
+      ! `default` must be a number, not `NaN`.
 
 # verbose testing
 

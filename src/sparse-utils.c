@@ -1,105 +1,107 @@
+#include "sparsevctrs-core.h"
+
 #include "sparse-utils.h"
+#include "altrep-sparse-common.h"
 
-SEXP extract_val(SEXP x) {
-  SEXP data1 = R_altrep_data1(x);
-  SEXP out = VECTOR_ELT(data1, 0);
-  return out;
+#include "decl/sparse-utils-decl.h"
+
+r_obj* ffi_sparse_extract_altrep_class(r_obj* ffi_x) {
+  if (!sparse_is_altrep(ffi_x)) {
+    return (r_null);
+  }
+
+  return R_altrep_class_name(ffi_x);
 }
 
-SEXP extract_pos(SEXP x) {
-  SEXP data1 = R_altrep_data1(x);
-  SEXP out = VECTOR_ELT(data1, 1);
-  return out;
+r_obj* ffi_sparse_is_sparse_vector(r_obj* ffi_x) {
+  return r_lgl(sparse_is_sparse_vector(ffi_x));
 }
 
-R_xlen_t extract_len(SEXP x) {
-  SEXP data1 = R_altrep_data1(x);
-  SEXP len = VECTOR_ELT(data1, 2);
+r_obj* ffi_sparse_is_altrep_non_sparse_vector(r_obj* ffi_x) {
+  if (!sparse_is_altrep(ffi_x)) {
+    return (r_lgl(false));
+  }
 
-  R_xlen_t out = (R_xlen_t) INTEGER_ELT(len, 0);
-
-  return out;
+  return r_lgl(altrep_package(ffi_x) != r_sym("sparsevctrs"));
 }
 
-SEXP extract_default(SEXP x) {
-  SEXP data1 = R_altrep_data1(x);
-  SEXP out = VECTOR_ELT(data1, 3);
-
-  return out;
-}
-
-double extract_default_double(SEXP x) {
-  SEXP default_val = extract_default(x);
-  double out = REAL_ELT(default_val, 0);
-
-  return out;
-}
-
-int extract_default_integer(SEXP x) {
-  SEXP default_val = extract_default(x);
-  int out = INTEGER_ELT(default_val, 0);
-
-  return out;
-}
-
-SEXP extract_default_string(SEXP x) {
-  SEXP default_val = extract_default(x);
-  SEXP out = STRING_ELT(default_val, 0);
-
-  return out;
-}
-
-Rboolean extract_default_logical(SEXP x) {
-  SEXP default_val = extract_default(x);
-  Rboolean out = LOGICAL_ELT(default_val, 0);
-
-  return out;
-}
-
-bool is_altrep(SEXP x) {
+bool sparse_is_altrep(r_obj* x) {
   return (bool) ALTREP(x);
 }
 
-SEXP ffi_extract_altrep_class(SEXP x) {
-  if (!is_altrep(x)) {
-    return (R_NilValue);
-  }
-
-  return R_altrep_class_name(x);
+bool sparse_is_sparse_vector(r_obj* x) {
+  return sparse_is_altrep(x) && altrep_package(x) == r_sym("sparsevctrs");
 }
 
-static inline SEXP altrep_package(SEXP x) {
+static inline r_obj* altrep_package(r_obj* x) {
   return R_altrep_class_package(x);
 }
 
-SEXP ffi_is_sparse_vector(SEXP x) {
-  if (!is_altrep(x)) {
-    return (Rf_ScalarLogical(FALSE));
-  }
-
-  return Rf_ScalarLogical(altrep_package(x) == Rf_install("sparsevctrs"));
+r_obj* sparse_extract_val(r_obj* x) {
+  sparse_sync(x);
+  r_obj* data1 = R_altrep_data1(x);
+  r_obj* out = r_list_get(data1, 0);
+  return out;
 }
 
-SEXP ffi_is_altrep_non_sparse_vector(SEXP x) {
-  if (!is_altrep(x)) {
-    return (Rf_ScalarLogical(FALSE));
-  }
-
-  return Rf_ScalarLogical(altrep_package(x) != Rf_install("sparsevctrs"));
+r_obj* sparse_extract_pos(r_obj* x) {
+  sparse_sync(x);
+  r_obj* data1 = R_altrep_data1(x);
+  r_obj* out = r_list_get(data1, 1);
+  return out;
 }
 
-static inline R_xlen_t midpoint(R_xlen_t lhs, R_xlen_t rhs) {
-  return lhs + (rhs - lhs) / 2;
+r_ssize sparse_extract_len(r_obj* x) {
+  r_obj* data1 = R_altrep_data1(x);
+  r_obj* len = r_list_get(data1, 2);
+
+  const r_ssize out = (r_ssize) r_int_get(len, 0);
+
+  return out;
 }
 
-R_xlen_t binary_search(int needle, const int* v_haystack, R_xlen_t size) {
-  R_xlen_t loc_lower_bound = 0;
-  R_xlen_t loc_upper_bound = size - 1;
+r_obj* sparse_extract_default(r_obj* x) {
+  r_obj* data1 = R_altrep_data1(x);
+  r_obj* out = r_list_get(data1, 3);
+
+  return out;
+}
+
+double sparse_extract_default_double(r_obj* x) {
+  r_obj* default_val = sparse_extract_default(x);
+  const double out = r_dbl_get(default_val, 0);
+
+  return out;
+}
+
+int sparse_extract_default_integer(r_obj* x) {
+  r_obj* default_val = sparse_extract_default(x);
+  const int out = r_int_get(default_val, 0);
+
+  return out;
+}
+
+r_obj* sparse_extract_default_string(r_obj* x) {
+  r_obj* default_val = sparse_extract_default(x);
+  r_obj* out = r_chr_get(default_val, 0);
+
+  return out;
+}
+
+int sparse_extract_default_logical(r_obj* x) {
+  r_obj* default_val = sparse_extract_default(x);
+  const int out = r_lgl_get(default_val, 0);
+
+  return out;
+}
+
+r_ssize sparse_binary_search(int needle, const int* v_haystack, r_ssize size) {
+  r_ssize loc_lower_bound = 0;
+  r_ssize loc_upper_bound = size - 1;
 
   while (loc_lower_bound <= loc_upper_bound) {
-    const R_xlen_t loc_middle_bound =
-        midpoint(loc_lower_bound, loc_upper_bound);
-    const R_xlen_t haystack = v_haystack[loc_middle_bound];
+    const r_ssize loc_middle_bound = midpoint(loc_lower_bound, loc_upper_bound);
+    const r_ssize haystack = v_haystack[loc_middle_bound];
 
     if (needle == haystack) {
       return loc_middle_bound;
@@ -114,19 +116,23 @@ R_xlen_t binary_search(int needle, const int* v_haystack, R_xlen_t size) {
   return size;
 }
 
-bool is_index_handleable(SEXP x) {
-  if (TYPEOF(x) != INTSXP) {
+static inline r_ssize midpoint(r_ssize lhs, r_ssize rhs) {
+  return lhs + (rhs - lhs) / 2;
+}
+
+bool sparse_is_index_handleable(r_obj* x) {
+  if (r_typeof(x) != R_TYPE_integer) {
     // i.e. can't handle indexing for long vectors
     return false;
   }
 
-  R_xlen_t size = Rf_xlength(x);
-  const int* v_x = INTEGER_RO(x);
+  const r_ssize size = r_length(x);
+  const int* v_x = r_int_cbegin(x);
 
-  for (R_xlen_t i = 0; i < size; ++i) {
+  for (r_ssize i = 0; i < size; ++i) {
     const int elt = v_x[i];
 
-    if (elt == NA_INTEGER) {
+    if (elt == r_globals.na_int) {
       continue;
     }
     if (elt == 0) {
@@ -143,26 +149,26 @@ bool is_index_handleable(SEXP x) {
   return true;
 }
 
-void verbose_materialize(void) {
-  SEXP option = Rf_GetOption1(Rf_install("sparsevctrs.verbose_materialize"));
+void sparse_verbose_materialize(void) {
+  r_obj* option = Rf_GetOption1(r_sym("sparsevctrs.verbose_materialize"));
 
-  if (!Rf_isNull(option)) {
-    if (TYPEOF(option) == LGLSXP) {
+  if (option != r_null) {
+    if (r_typeof(option) == R_TYPE_logical) {
       Rprintf("sparsevctrs: Sparse vector materialized\n");
     }
-    if (TYPEOF(option) == REALSXP) {
-      if (*REAL_RO(option) == 3) {
+    if (r_typeof(option) == R_TYPE_double) {
+      if (*r_dbl_cbegin(option) == 3) {
         Rf_error("sparsevctrs: Sparse vector materialized");
-      } else if (*REAL_RO(option) == 2) {
+      } else if (*r_dbl_cbegin(option) == 2) {
         Rf_warning("sparsevctrs: Sparse vector materialized");
       } else {
         Rprintf("sparsevctrs: Sparse vector materialized\n");
       }
     }
-    if (TYPEOF(option) == INTSXP) {
-      if (*INTEGER_RO(option) == 3) {
+    if (r_typeof(option) == R_TYPE_integer) {
+      if (*r_int_cbegin(option) == 3) {
         Rf_error("sparsevctrs: Sparse vector materialized");
-      } else if (*INTEGER_RO(option) == 2) {
+      } else if (*r_int_cbegin(option) == 2) {
         Rf_warning("sparsevctrs: Sparse vector materialized");
       } else {
         Rprintf("sparsevctrs: Sparse vector materialized\n");
@@ -171,68 +177,131 @@ void verbose_materialize(void) {
   }
 }
 
-void sort_pos_and_val(SEXP pos, SEXP val) {
-  R_xlen_t len = Rf_length(pos);
+void sparse_sort_pos_and_val(r_obj* pos, r_obj* val) {
+  const r_ssize len = r_length(pos);
 
   // nothing to sort -> stop early
   if (len < 2) {
     return;
   }
 
-  SEXP index = PROTECT(Rf_allocVector(INTSXP, len));
-  SEXP sorted_pos = PROTECT(Rf_allocVector(INTSXP, len));
+  int* v_pos = r_int_begin(pos);
 
-  // Initialize pairs array
-  for (R_xlen_t i = 0; i < len; i++) {
-    SET_INTEGER_ELT(sorted_pos, i, INTEGER_ELT(pos, i));
-    SET_INTEGER_ELT(index, i, i);
+  if (pos_is_sorted(v_pos, len)) {
+    return;
   }
 
-  // Sort pairs based on values
-  for (int i = 0; i < len - 1; i++) {
-    for (int j = 0; j < len - i - 1; j++) {
-      if (INTEGER_ELT(sorted_pos, j) > INTEGER_ELT(sorted_pos, j + 1)) {
-        // Swap pairs
-        int temp_pos = INTEGER_ELT(sorted_pos, j);
-        int temp_index = INTEGER_ELT(index, j);
+  r_obj* index = KEEP(r_alloc_integer(len));
+  int* v_index = r_int_begin(index);
+  r_obj* buffer = KEEP(r_alloc_integer(len));
+  int* v_buffer = r_int_begin(buffer);
 
-        SET_INTEGER_ELT(sorted_pos, j, INTEGER_ELT(sorted_pos, j + 1));
-        SET_INTEGER_ELT(sorted_pos, j + 1, temp_pos);
+  for (r_ssize i = 0; i < len; i++) {
+    v_index[i] = i;
+  }
 
-        SET_INTEGER_ELT(index, j, INTEGER_ELT(index, j + 1));
-        SET_INTEGER_ELT(index, j + 1, temp_index);
-      }
+  const int* v_order = merge_sort_index(v_pos, v_index, v_buffer, len);
+
+  for (r_ssize i = 0; i < len; i++) {
+    v_index[i] = v_order[i];
+  }
+
+  for (r_ssize i = 0; i < len; i++) {
+    v_buffer[i] = v_pos[v_index[i]];
+  }
+
+  for (r_ssize i = 0; i < len; i++) {
+    v_pos[i] = v_buffer[i];
+  }
+
+  if (r_typeof(val) == R_TYPE_integer) {
+    int* v_val = r_int_begin(val);
+
+    r_obj* sorted_val = KEEP(r_alloc_integer(len));
+    int* v_sorted_val = r_int_begin(sorted_val);
+
+    for (r_ssize i = 0; i < len; i++) {
+      const int cur_index = v_index[i];
+
+      v_sorted_val[i] = v_val[cur_index];
     }
-  }
 
-  for (R_xlen_t i = 0; i < len; i++) {
-    SET_INTEGER_ELT(pos, i, INTEGER_ELT(sorted_pos, i));
-  }
-
-  if (Rf_isInteger(val)) {
-    SEXP sorted_val = PROTECT(Rf_allocVector(INTSXP, len));
-
-    for (R_xlen_t i = 0; i < len; i++) {
-      int cur_index = INTEGER_ELT(index, i);
-
-      SET_INTEGER_ELT(sorted_val, i, INTEGER_ELT(val, cur_index));
-    }
-
-    for (R_xlen_t i = 0; i < len; i++) {
-      SET_INTEGER_ELT(val, i, INTEGER_ELT(sorted_val, i));
+    for (r_ssize i = 0; i < len; i++) {
+      v_val[i] = v_sorted_val[i];
     }
   } else {
-    SEXP sorted_val = PROTECT(Rf_allocVector(REALSXP, len));
+    double* v_val = r_dbl_begin(val);
 
-    for (R_xlen_t i = 0; i < len; i++) {
-      int cur_index = INTEGER_ELT(index, i);
+    r_obj* sorted_val = KEEP(r_alloc_double(len));
+    double* v_sorted_val = r_dbl_begin(sorted_val);
 
-      SET_REAL_ELT(sorted_val, i, REAL_ELT(val, cur_index));
+    for (r_ssize i = 0; i < len; i++) {
+      const int cur_index = v_index[i];
+
+      v_sorted_val[i] = v_val[cur_index];
     }
 
-    for (R_xlen_t i = 0; i < len; i++) {
-      SET_REAL_ELT(val, i, REAL_ELT(sorted_val, i));
+    for (r_ssize i = 0; i < len; i++) {
+      v_val[i] = v_sorted_val[i];
     }
   }
-  UNPROTECT(3);
+  FREE(3);
+}
+
+static bool pos_is_sorted(const int* v_pos, r_ssize len) {
+  for (r_ssize i = 1; i < len; i++) {
+    if (v_pos[i - 1] > v_pos[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static const int* merge_sort_index(
+  const int* v_pos,
+  int* v_a,
+  int* v_b,
+  r_ssize len
+) {
+  const int* v_src = v_a;
+  int* v_dst = v_b;
+
+  for (r_ssize width = 1; width < len; width *= 2) {
+    for (r_ssize lo = 0; lo < len; lo += 2 * width) {
+      const r_ssize mid = lo + width < len ? lo + width : len;
+      const r_ssize hi = lo + 2 * width < len ? lo + 2 * width : len;
+
+      r_ssize i = lo;
+      r_ssize j = mid;
+      r_ssize k = lo;
+
+      while (i < mid && j < hi) {
+        if (v_pos[v_src[j]] < v_pos[v_src[i]]) {
+          v_dst[k++] = v_src[j++];
+        } else {
+          v_dst[k++] = v_src[i++];
+        }
+      }
+      while (i < mid) {
+        v_dst[k++] = v_src[i++];
+      }
+      while (j < hi) {
+        v_dst[k++] = v_src[j++];
+      }
+    }
+
+    const int* v_done = v_dst;
+    v_dst = v_dst == v_a ? v_b : v_a;
+    v_src = v_done;
+  }
+
+  return v_src;
+}
+
+int sparse_ssize_as_int(r_ssize x) {
+  if (x > INT_MAX) {
+    Rf_error("Can't convert a length of %td to an integer.", (ptrdiff_t) x);
+  }
+
+  return (int) x;
 }

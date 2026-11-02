@@ -7,7 +7,7 @@
 #' @param positions integer vector, indices of non-zero entries.
 #' @param length integer value, Length of vector.
 #' @param default double value, value at indices not specified by `positions`.
-#'   Defaults to `0`. Cannot be `NA`.
+#'   Defaults to `0`. Cannot be `NA`, `NaN`, or infinite.
 #'
 #' @details
 #'
@@ -43,7 +43,7 @@
 #' )
 #' @export
 sparse_double <- function(values, positions, length, default = 0) {
-  check_number_decimal(default)
+  check_number_decimal(default, allow_infinite = FALSE)
   validate_length(length)
 
   if (!is.integer(length)) {
@@ -88,9 +88,9 @@ new_sparse_double <- function(values, positions, length, default) {
     default
   )
 
-  .Call(ffi_altrep_new_sparse_double, x)
+  .Call(ffi_sparse_altrep_new_sparse_double, x)
 }
 
 sparse_double_materialize <- function(x) {
-  .Call(ffi_altrep_sparse_double_materialize, x)
+  .Call(ffi_sparse_altrep_sparse_double_materialize, x)
 }

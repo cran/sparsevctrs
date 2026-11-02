@@ -101,6 +101,7 @@ coerce_to_sparse_matrix <- function(x, call = rlang::caller_env(0)) {
 #'
 #' @details
 #' The only requirement from the sparse matrix is that it contains column names.
+#' Logical sparse matrices give sparse double columns.
 #'
 #' @return tibble with sparse columns
 #'
@@ -145,15 +146,24 @@ coerce_to_sparse_tibble <- function(x, call = rlang::caller_env(0)) {
   res
 }
 
-#' Coerce sparse matrix to data frame with sparse columns
+#' Coerce sparse matrix or data frame to data frame with sparse columns
 #'
-#' Turning a sparse matrix into a data frame
+#' Turning a sparse matrix or a data frame into a data frame with sparse
+#' columns.
 #'
-#' @param x sparse matrix.
+#' @param x sparse matrix, or a data frame or tibble.
 #' @inheritParams rlang::args_error_context
 #'
 #' @details
-#' The only requirement from the sparse matrix is that it contains column names.
+#' The only requirement from a sparse matrix is that it contains column names.
+#' Logical sparse matrices give sparse double columns.
+#'
+#' When `x` is a data frame, each column is turned into a sparse vector of the
+#' same type using [as_sparse_integer()], [as_sparse_double()],
+#' [as_sparse_logical()] or [as_sparse_character()], with the default value of
+#' each function. Columns that are already sparse are left as is. All columns
+#' must be integer, double, logical or character vectors. Column names and row
+#' names are kept, and the result is a plain data frame even if `x` is a tibble.
 #'
 #' @return data.frame with sparse columns
 #'
@@ -170,11 +180,20 @@ coerce_to_sparse_tibble <- function(x, call = rlang::caller_env(0)) {
 #'
 #' # All columns are sparse
 #' vapply(res, is_sparse_vector, logical(1))
+#'
+#' # Data frames can be used as well
+#' res <- coerce_to_sparse_data_frame(as.data.frame(mat))
+#' vapply(res, is_sparse_vector, logical(1))
 #' @export
 coerce_to_sparse_data_frame <- function(x, call = rlang::caller_env(0)) {
+  if (inherits(x, "data.frame")) {
+    return(.data_frame_to_sparse(x, call = call))
+  }
+
   if (!any(methods::is(x) == "sparseMatrix")) {
     cli::cli_abort(
-      "{.arg x} must be a {.cls sparseMatrix}, not {.obj_type_friendly {x}}.",
+      "{.arg x} must be a {.cls sparseMatrix} or {.cls data.frame}, \\
+      not {.obj_type_friendly {x}}.",
       call = call
     )
   }
@@ -192,43 +211,70 @@ coerce_to_sparse_data_frame <- function(x, call = rlang::caller_env(0)) {
   }
 
   res <- .sparse_matrix_to_list(x)
-  res <- as.data.frame(res)
+  names(res) <- make.names(names(res), unique = TRUE)
+  attr(res, "row.names") <- .set_row_names(nrow(x))
+  class(res) <- "data.frame"
   res
 }
 
-.sparse_matrix_to_list <- function(x) {
-  if (methods::is(x, "ngCMatrix")) {
-    values <- rep(1, length(x@i))
-  } else {
-    values <- x@x
-  }
+.data_frame_to_sparse <- function(x, call) {
+  supported <- vapply(x, .has_sparse_type, logical(1))
 
-  x_positions <- x@i
-  n_nonzero <- diff(x@p)
-
-  x_length <- nrow(x)
-
-  res <- list()
-  start <- 1
-  for (i in seq_along(n_nonzero)) {
-    if (n_nonzero[i] == 0) {
-      res[[i]] <- sparse_double(
-        values = double(),
-        positions = double(),
-        length = x_length
-      )
-      next
-    }
-
-    index <- seq(start, start + n_nonzero[i] - 1)
-
-    res[[i]] <- sparse_double(
-      values = values[index],
-      positions = x_positions[index] + 1,
-      length = x_length
+  if (!all(supported)) {
+    offenders <- x[!supported]
+    types <- vapply(offenders, \(col) class(col)[[1]], character(1))
+    offenders <- paste0(names(offenders), " (", types, ")")
+    cli::cli_abort(
+      c(
+        x = "All columns of {.arg x} must be integer, double, logical, or \\
+        character vectors.",
+        i = "Unsupported columns: {.field {offenders}}."
+      ),
+      call = call
     )
-    start <- start + n_nonzero[i]
   }
+
+  res <- lapply(x, .as_sparse_column)
+  attr(res, "row.names") <- attr(x, "row.names")
+  class(res) <- "data.frame"
+  res
+}
+
+.has_sparse_type <- function(x) {
+  !is.object(x) &&
+    is.null(dim(x)) &&
+    typeof(x) %in% c("integer", "double", "logical", "character")
+}
+
+.as_sparse_column <- function(x) {
+  switch(
+    typeof(x),
+    integer = as_sparse_integer(x),
+    double = as_sparse_double(x),
+    logical = as_sparse_logical(x),
+    character = as_sparse_character(x)
+  )
+}
+
+.sparse_matrix_to_list <- function(x, call = rlang::caller_env()) {
+  if (methods::is(x, "ngCMatrix")) {
+    values <- NULL
+  } else {
+    if (any(x@x == 0, na.rm = TRUE)) {
+      x <- Matrix::drop0(x)
+    }
+    values <- x@x
+    if (is.logical(values)) {
+      values <- as.double(values)
+    }
+    if (is.double(values)) {
+      validate_values_double(values, call = call)
+    }
+  }
+
+  # Matrix guarantees sorted, unique, in-range positions, so we skip the
+  # validation in sparse_double().
+  res <- .Call(ffi_sparse_matrix_to_list, x@i, x@p, values, nrow(x))
 
   names(res) <- colnames(x)
   res

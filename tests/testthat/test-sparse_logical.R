@@ -182,6 +182,16 @@ test_that("single subsetting works with sparse_logical()", {
   expect_identical(x_sparse[2.6], x_dense[2.6])
 })
 
+test_that("subsetting one past the end works with sparse_logical()", {
+  x_sparse <- sparse_logical(FALSE, 3, 3, default = TRUE)
+  x_dense <- c(TRUE, TRUE, FALSE)
+
+  expect_identical(x_sparse[4], x_dense[4])
+  expect_identical(x_sparse[3:4], x_dense[3:4])
+  expect_error(x_sparse[[4]], "subscript out of bounds")
+  expect_error(x_dense[[4]], "subscript out of bounds")
+})
+
 test_that("multiple subsetting works with sparse_logical()", {
   x_sparse <- sparse_logical(
     value = c(TRUE, NA, TRUE),
@@ -257,6 +267,43 @@ test_that("sorting works with sparse_logical()", {
   expect_true(is_sparse_logical(sort(x_sparse)))
 })
 
+test_that("is.unsorted() works with sparse_logical()", {
+  sorted <- sparse_logical(TRUE, 3, 3)
+  expect_identical(is.unsorted(sorted), is.unsorted(sorted[]))
+  expect_false(is.unsorted(sorted))
+
+  trailing <- sparse_logical(TRUE, 1, 3)
+  expect_identical(is.unsorted(trailing), is.unsorted(trailing[]))
+  expect_true(is.unsorted(trailing))
+
+  trailing <- sparse_logical(c(TRUE, TRUE), c(1, 2), 4)
+  expect_identical(is.unsorted(trailing), is.unsorted(trailing[]))
+  expect_true(is.unsorted(trailing))
+
+  gap <- sparse_logical(c(FALSE, FALSE), c(1, 5), 5, default = TRUE)
+  expect_identical(is.unsorted(gap), is.unsorted(gap[]))
+  expect_true(is.unsorted(gap))
+
+  single <- sparse_logical(FALSE, 3, 3, default = TRUE)
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_true(is.unsorted(single))
+})
+
+test_that("sum works with sparse_logical() and non-FALSE default", {
+  expect_identical(
+    sum(sparse_logical(FALSE, 2, 5, default = TRUE)),
+    4L
+  )
+  expect_identical(
+    sum(sparse_logical(c(FALSE, FALSE), c(1, 3), 5, default = TRUE)),
+    3L
+  )
+  expect_identical(
+    sum(sparse_logical(TRUE, 2, 5)),
+    1L
+  )
+})
+
 test_that("default argument is working", {
   expect_snapshot(
     error = TRUE,
@@ -316,4 +363,39 @@ test_that("verbose testing", {
       tmp <- sparse_logical_materialize(x)
     }
   )
+})
+
+test_that("methods work after in-place modification of sparse_logical", {
+  x <- sparse_logical(c(TRUE, TRUE), c(1, 2), 5)
+  x[3] <- NA
+  expect_true(anyNA(x))
+  expect_identical(x[1:5], c(TRUE, TRUE, NA, FALSE, FALSE))
+
+  x <- sparse_logical(TRUE, 1, 5)
+  x[2] <- TRUE
+  expect_identical(sum(x), 2L)
+})
+
+test_that("in-place modification works with resets and sorting", {
+  x <- sparse_logical(TRUE, 1, 4)
+  x[1] <- FALSE
+  expect_identical(sum(x), 0L)
+  expect_false(is.unsorted(x))
+  expect_false(anyNA(x))
+
+  x[4] <- TRUE
+  expect_identical(sum(x), 1L)
+  expect_false(is.unsorted(x))
+
+  x <- sparse_logical(TRUE, 1, 4)
+  x[2] <- TRUE
+  expect_true(is.unsorted(x))
+  expect_identical(sparse_positions(x), 1:2)
+  expect_identical(sparse_values(x), c(TRUE, TRUE))
+
+  y <- sparse_logical(TRUE, 1, 4)
+  z <- y
+  y[2] <- NA
+  expect_false(anyNA(z))
+  expect_true(anyNA(y))
 })

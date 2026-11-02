@@ -1,239 +1,268 @@
+#include "sparsevctrs-core.h"
+
 #include "sparse-dummy.h"
+#include "sparse-utils.h"
+#include "altrep-sparse-integer.h"
 
-// Defined in altrep-sparse-integer.c
-extern SEXP ffi_altrep_new_sparse_integer(SEXP);
-extern void sparsevctrs_init_altrep_sparse_integer(DllInfo*);
+#include "decl/sparse-dummy-decl.h"
 
-SEXP create_dummy(SEXP pos, R_xlen_t length) {
-  SEXP out = PROTECT(Rf_allocVector(VECSXP, 4));
+r_obj* ffi_sparse_dummy(r_obj* ffi_x, r_obj* ffi_lvls, r_obj* ffi_one_hot) {
+  const r_ssize n_lvls = r_length(ffi_lvls);
+  const r_ssize len = sparse_ssize_as_int(r_length(ffi_x));
 
-  const R_xlen_t pos_len = Rf_length(pos);
+  const int* v_x = r_int_cbegin(ffi_x);
+  const unsigned int shift = r_lgl_get(ffi_one_hot, 0) == 1 ? 1 : 2;
 
-  // values
-  SEXP out_val = Rf_allocVector(INTSXP, pos_len);
-  SET_VECTOR_ELT(out, 0, out_val);
-  int* v_out_val = INTEGER(out_val);
+  r_obj* counts = KEEP(r_alloc_integer(n_lvls + 2));
+  int* v_counts = r_int_begin(counts);
 
-  for (R_xlen_t i = 0; i < pos_len; ++i) {
-    v_out_val[i] = 1;
-  }
+  sparse_dummy_count(v_x, len, shift, n_lvls, v_counts);
 
-  // positions
-  SET_VECTOR_ELT(out, 1, pos);
+  const r_ssize n_na = v_counts[n_lvls];
 
-  // length
-  const SEXP out_length = Rf_ScalarInteger((int) length);
-  SET_VECTOR_ELT(out, 2, out_length);
+  r_obj* out_len = KEEP(r_int((int) len));
+  r_obj* out_default = KEEP(r_int(0));
 
-  // default
-  const SEXP out_default = Rf_ScalarInteger(0);
-  SET_VECTOR_ELT(out, 3, out_default);
-
-  UNPROTECT(1);
-
-  return ffi_altrep_new_sparse_integer(out);
-}
-
-SEXP create_dummy_na(SEXP values, SEXP pos, R_xlen_t length) {
-  SEXP out = PROTECT(Rf_allocVector(VECSXP, 4));
-
-  // values
-  SET_VECTOR_ELT(out, 0, values);
-
-  // positions
-  SET_VECTOR_ELT(out, 1, pos);
-
-  // length
-  const SEXP out_length = Rf_ScalarInteger((int) length);
-  SET_VECTOR_ELT(out, 2, out_length);
-
-  // default
-  const SEXP out_default = Rf_ScalarInteger(0);
-  SET_VECTOR_ELT(out, 3, out_default);
-
-  UNPROTECT(1);
-
-  return ffi_altrep_new_sparse_integer(out);
-}
-
-SEXP ffi_sparse_dummy(SEXP x, SEXP lvls, SEXP counts, SEXP one_hot) {
-  const R_xlen_t n_lvls = Rf_length(lvls);
-  const R_xlen_t len = Rf_length(x);
-
-  const int* v_x = INTEGER_RO(x);
-
-  // Generate list of integer vectors. One vector for each level, with its
-  // length equal to the number of occurances of that level.
-  SEXP out = PROTECT(Rf_allocVector(VECSXP, n_lvls));
-
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    R_xlen_t n_val = INTEGER_ELT(counts, i);
-    SET_VECTOR_ELT(out, i, Rf_allocVector(INTSXP, n_val));
-  }
-
-  // Vector of positions to keep track of how far into each position vector we
-  // are. Initialize to 0 to indicate first position.
-  SEXP pos_index = PROTECT(Rf_allocVector(INTSXP, n_lvls));
-  int* v_pos_index = INTEGER(pos_index);
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    SET_INTEGER_ELT(pos_index, i, 0);
-  }
-
-  // Itterate over input, find its position index, and place the position value
-  // at the index. Increment specific index.
-  if ((Rboolean) LOGICAL_ELT(one_hot, 0) == TRUE) {
-    for (R_xlen_t i = 0; i < len; ++i) {
-      int current_val = v_x[i] - 1;
-
-      int index = v_pos_index[current_val];
-
-      SEXP pos_vec = VECTOR_ELT(out, current_val);
-      int* v_pos_vec = INTEGER(pos_vec);
-
-      // we need the result to be 1-indexed
-      v_pos_vec[index] = i + 1;
-      v_pos_index[current_val]++;
-    }
+  r_obj* out;
+  if (n_na == 0) {
+    out = sparse_dummy_no_na(
+      v_x,
+      len,
+      shift,
+      n_lvls,
+      v_counts,
+      out_len,
+      out_default
+    );
   } else {
-    for (R_xlen_t i = 0; i < len; ++i) {
-      int current_val = v_x[i] - 1;
-
-      if (current_val == -1) {
-        continue;
-      }
-
-      int index = v_pos_index[current_val];
-
-      SEXP pos_vec = VECTOR_ELT(out, current_val);
-      int* v_pos_vec = INTEGER(pos_vec);
-
-      // we need the result to be 1-indexed
-      v_pos_vec[index] = i + 1;
-      v_pos_index[current_val]++;
-    }
+    out = sparse_dummy_na(
+      v_x,
+      len,
+      shift,
+      n_lvls,
+      v_counts,
+      n_na,
+      out_len,
+      out_default
+    );
   }
 
-  // Turn list of integer vectors with positions, into list of sparse integer
-  // vectors.
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    SEXP positions = VECTOR_ELT(out, i);
-    SEXP dummy = create_dummy(positions, len);
-    SET_VECTOR_ELT(out, i, dummy);
-  }
-
-  UNPROTECT(2);
+  FREE(3);
 
   return out;
 }
 
-SEXP ffi_sparse_dummy_na(SEXP x, SEXP lvls, SEXP counts, SEXP one_hot) {
-  const R_xlen_t n_lvls = Rf_length(lvls);
-  const R_xlen_t len = Rf_length(x);
+static void sparse_dummy_count(
+  const int* v_x,
+  r_ssize len,
+  unsigned int shift,
+  r_ssize n_lvls,
+  int* v_counts
+) {
+  for (r_ssize k = 0; k < n_lvls + 2; ++k) {
+    v_counts[k] = 0;
+  }
 
-  const int* v_x = INTEGER_RO(x);
+  const unsigned int n_lvls_uint = (unsigned int) n_lvls;
 
-  // Generate lists of integer vectors. One vector for each level, with its
+  for (r_ssize i = 0; i < len; ++i) {
+    const int code = v_x[i];
+    const unsigned int k = (unsigned int) code - shift;
+    const unsigned int other = n_lvls_uint + (code != r_globals.na_int);
+
+    ++v_counts[k < n_lvls_uint ? k : other];
+  }
+}
+
+static r_obj* sparse_dummy_no_na(
+  const int* v_x,
+  r_ssize len,
+  unsigned int shift,
+  r_ssize n_lvls,
+  const int* v_counts,
+  r_obj* out_len,
+  r_obj* out_default
+) {
+  // Generate list of integer vectors. One vector for each level, with its
   // length equal to the number of occurances of that level.
-  SEXP out_positions = PROTECT(Rf_allocVector(VECSXP, n_lvls));
-  SEXP out_values = PROTECT(Rf_allocVector(VECSXP, n_lvls));
+  r_obj* out = KEEP(r_alloc_list(n_lvls));
+  r_obj* ptrs = KEEP(r_alloc_raw((n_lvls + 1) * sizeof(int*)));
+  int** v_ptrs = (int**) r_raw_begin(ptrs);
 
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    R_xlen_t n_val = INTEGER_ELT(counts, i);
-    SET_VECTOR_ELT(out_values, i, Rf_allocVector(INTSXP, n_val));
-    SET_VECTOR_ELT(out_positions, i, Rf_allocVector(INTSXP, n_val));
+  for (r_ssize k = 0; k < n_lvls; ++k) {
+    r_obj* pos = r_alloc_integer(v_counts[k]);
+    r_list_poke(out, k, pos);
+    v_ptrs[k] = r_int_begin(pos);
   }
 
-  // Vector of positions to keep track of how far into each position vector we
-  // are. Initialize to 0 to indicate first position.
-  SEXP pos_index = PROTECT(Rf_allocVector(INTSXP, n_lvls));
-  int* v_pos_index = INTEGER(pos_index);
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    SET_INTEGER_ELT(pos_index, i, 0);
-  }
+  int scratch;
+  v_ptrs[n_lvls] = &scratch;
 
-  // Itterate over input, find its position index, and place the position value
-  // at the index. Increment specific index.
+  const unsigned int n_lvls_uint = (unsigned int) n_lvls;
 
-  if ((Rboolean) LOGICAL_ELT(one_hot, 0) == TRUE) {
-    for (R_xlen_t i = 0; i < len; ++i) {
-      int current_val = v_x[i];
+  for (r_ssize i = 0; i < len; ++i) {
+    const unsigned int k = (unsigned int) v_x[i] - shift;
+    const unsigned int slot = k < n_lvls_uint ? k : n_lvls_uint;
 
-      if (current_val == R_NaInt) {
-        for (R_xlen_t j = 0; j < n_lvls; ++j) {
-          int index = v_pos_index[j];
+    int* v_pos = v_ptrs[slot];
 
-          SEXP pos_vec = VECTOR_ELT(out_positions, j);
-          int* v_pos_vec = INTEGER(pos_vec);
-          SEXP val_vec = VECTOR_ELT(out_values, j);
-          int* v_val_vec = INTEGER(val_vec);
-
-          v_pos_vec[index] = i + 1;
-          v_val_vec[index] = R_NaInt;
-          v_pos_index[j]++;
-        }
-      } else {
-        --current_val;
-        int index = v_pos_index[current_val];
-
-        SEXP pos_vec = VECTOR_ELT(out_positions, current_val);
-        int* v_pos_vec = INTEGER(pos_vec);
-        SEXP val_vec = VECTOR_ELT(out_values, current_val);
-        int* v_val_vec = INTEGER(val_vec);
-
-        // we need the result to be 1-indexed
-        v_pos_vec[index] = i + 1;
-        v_val_vec[index] = 1;
-        v_pos_index[current_val]++;
-      }
-    }
-  } else {
-    for (R_xlen_t i = 0; i < len; ++i) {
-      int current_val = v_x[i];
-
-      if (current_val == R_NaInt) {
-        for (R_xlen_t j = 0; j < n_lvls; ++j) {
-          int index = v_pos_index[j];
-
-          SEXP pos_vec = VECTOR_ELT(out_positions, j);
-          int* v_pos_vec = INTEGER(pos_vec);
-          SEXP val_vec = VECTOR_ELT(out_values, j);
-          int* v_val_vec = INTEGER(val_vec);
-
-          v_pos_vec[index] = i + 1;
-          v_val_vec[index] = R_NaInt;
-          v_pos_index[j]++;
-        }
-      } else {
-        --current_val;
-        if (current_val == -1) {
-          continue;
-        }
-
-        int index = v_pos_index[current_val];
-
-        SEXP pos_vec = VECTOR_ELT(out_positions, current_val);
-        int* v_pos_vec = INTEGER(pos_vec);
-        SEXP val_vec = VECTOR_ELT(out_values, current_val);
-        int* v_val_vec = INTEGER(val_vec);
-
-        // we need the result to be 1-indexed
-        v_pos_vec[index] = i + 1;
-        v_val_vec[index] = 1;
-        v_pos_index[current_val]++;
-      }
-    }
+    // we need the result to be 1-indexed
+    *v_pos = i + 1;
+    v_ptrs[slot] = v_pos + (slot < n_lvls_uint);
   }
 
   // Turn list of integer vectors with positions, into list of sparse integer
   // vectors.
-  for (R_xlen_t i = 0; i < n_lvls; ++i) {
-    SEXP positions = VECTOR_ELT(out_positions, i);
-    SEXP values = VECTOR_ELT(out_values, i);
-    SEXP dummy = create_dummy_na(values, positions, len);
-    SET_VECTOR_ELT(out_positions, i, dummy);
+  for (r_ssize k = 0; k < n_lvls; ++k) {
+    r_obj* pos = r_list_get(out, k);
+
+    const r_ssize n_val = v_counts[k];
+    r_obj* val = KEEP(r_alloc_integer(n_val));
+    int* v_val = r_int_begin(val);
+    for (r_ssize j = 0; j < n_val; ++j) {
+      v_val[j] = 1;
+    }
+
+    r_obj* dummy = create_dummy(val, pos, out_len, out_default);
+    FREE(1);
+
+    r_list_poke(out, k, dummy);
   }
 
-  UNPROTECT(3);
+  FREE(2);
 
-  return out_positions;
+  return out;
+}
+
+static r_obj* sparse_dummy_na(
+  const int* v_x,
+  r_ssize len,
+  unsigned int shift,
+  r_ssize n_lvls,
+  const int* v_counts,
+  r_ssize n_na,
+  r_obj* out_len,
+  r_obj* out_default
+) {
+  r_ssize n_own = 0;
+  for (r_ssize k = 0; k < n_lvls; ++k) {
+    n_own += v_counts[k];
+  }
+
+  r_obj* na_pos = KEEP(r_alloc_integer(n_na + 1));
+  int* v_na_pos = r_int_begin(na_pos);
+
+  r_obj* own = KEEP(r_alloc_integer(2 * (n_own + 1)));
+  int* v_own = r_int_begin(own);
+
+  r_obj* cursors = KEEP(r_alloc_integer(n_lvls + 1));
+  int* v_cursors = r_int_begin(cursors);
+
+  int offset = 0;
+  for (r_ssize k = 0; k < n_lvls; ++k) {
+    v_cursors[k] = offset;
+    offset += v_counts[k];
+  }
+  v_cursors[n_lvls] = offset;
+
+  const unsigned int n_lvls_uint = (unsigned int) n_lvls;
+  int n_seen = 0;
+
+  for (r_ssize i = 0; i < len; ++i) {
+    const int code = v_x[i];
+    const unsigned int k = (unsigned int) code - shift;
+    const unsigned int slot = k < n_lvls_uint ? k : n_lvls_uint;
+
+    int* v_e = v_own + 2 * (r_ssize) v_cursors[slot];
+
+    // we need the result to be 1-indexed
+    v_e[0] = i + 1;
+    v_e[1] = n_seen;
+    v_cursors[slot] += (slot < n_lvls_uint);
+
+    v_na_pos[n_seen] = i + 1;
+    n_seen += (code == r_globals.na_int);
+  }
+
+  r_obj* out = KEEP(r_alloc_list(n_lvls));
+
+  r_ssize first = 0;
+  for (r_ssize k = 0; k < n_lvls; ++k) {
+    const r_ssize n_k = v_counts[k];
+    const r_ssize n_val = n_k + n_na;
+
+    r_obj* val = KEEP(r_alloc_integer(n_val));
+    int* v_val = r_int_begin(val);
+    r_obj* pos = KEEP(r_alloc_integer(n_val));
+    int* v_pos = r_int_begin(pos);
+
+    r_ssize n_out = 0;
+    r_ssize n_used = 0;
+
+    for (r_ssize j = first; j < first + n_k; ++j) {
+      const int* v_e = v_own + 2 * j;
+      const r_ssize n_before = v_e[1];
+      const r_ssize n_gap = n_before - n_used;
+
+      sparse_dummy_fill_na(
+        v_pos + n_out,
+        v_val + n_out,
+        v_na_pos + n_used,
+        n_gap
+      );
+      n_out += n_gap;
+      n_used = n_before;
+
+      v_pos[n_out] = v_e[0];
+      v_val[n_out] = 1;
+      ++n_out;
+    }
+
+    sparse_dummy_fill_na(
+      v_pos + n_out,
+      v_val + n_out,
+      v_na_pos + n_used,
+      n_na - n_used
+    );
+
+    first += n_k;
+
+    r_obj* dummy = create_dummy(val, pos, out_len, out_default);
+    FREE(2);
+
+    r_list_poke(out, k, dummy);
+  }
+
+  FREE(4);
+
+  return out;
+}
+
+static inline void sparse_dummy_fill_na(
+  int* v_pos,
+  int* v_val,
+  const int* v_na_pos,
+  r_ssize n
+) {
+  const int na = r_globals.na_int;
+
+  for (r_ssize i = 0; i < n; ++i) {
+    v_pos[i] = v_na_pos[i];
+    v_val[i] = na;
+  }
+}
+
+static r_obj* create_dummy(r_obj* val, r_obj* pos, r_obj* len, r_obj* def) {
+  r_obj* out = KEEP(r_alloc_list(4));
+
+  r_list_poke(out, 0, val);
+  r_list_poke(out, 1, pos);
+  r_list_poke(out, 2, len);
+  r_list_poke(out, 3, def);
+
+  r_obj* altrep = new_altrep_sparse_integer(out);
+
+  FREE(1);
+
+  return altrep;
 }

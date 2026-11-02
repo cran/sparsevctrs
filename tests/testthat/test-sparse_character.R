@@ -192,6 +192,16 @@ test_that("single subsetting works with sparse_character()", {
   expect_identical(x_sparse[2.6], x_dense[2.6])
 })
 
+test_that("subsetting one past the end works with sparse_character()", {
+  x_sparse <- sparse_character("a", 3, 3, default = "z")
+  x_dense <- c("z", "z", "a")
+
+  expect_identical(x_sparse[4], x_dense[4])
+  expect_identical(x_sparse[3:4], x_dense[3:4])
+  expect_error(x_sparse[[4]], "subscript out of bounds")
+  expect_error(x_dense[[4]], "subscript out of bounds")
+})
+
 test_that("multiple subsetting works with sparse_character()", {
   x_sparse <- sparse_character(
     value = c("A", NA, "B"),
@@ -236,6 +246,38 @@ test_that("materialization works with sparse_character()", {
   x_dense <- c("A", "", "", "", NA, "", "", "B", "", "")
 
   expect_identical(x_sparse[], x_dense)
+})
+
+test_that("is.unsorted() works with sparse_character()", {
+  sorted <- sparse_character(c("b", "c"), c(3, 4), 4, default = "a")
+  expect_identical(is.unsorted(sorted), is.unsorted(sorted[]))
+  expect_false(is.unsorted(sorted))
+
+  unsorted <- sparse_character(c("c", "b"), c(2, 3), 4, default = "a")
+  expect_identical(is.unsorted(unsorted), is.unsorted(unsorted[]))
+  expect_true(is.unsorted(unsorted))
+
+  gap <- sparse_character(c("a", "b"), c(1, 5), 5, default = "c")
+  expect_identical(is.unsorted(gap), is.unsorted(gap[]))
+  expect_true(is.unsorted(gap))
+
+  trailing <- sparse_character(c("b", "c"), c(1, 2), 3, default = "a")
+  expect_identical(is.unsorted(trailing), is.unsorted(trailing[]))
+  expect_true(is.unsorted(trailing))
+
+  single <- sparse_character("b", 1, 3, default = "a")
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_true(is.unsorted(single))
+
+  single <- sparse_character("b", 3, 3, default = "a")
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_false(is.unsorted(single))
+
+  non_ascii <- sparse_character(c("é", "z"), c(3, 4), 4, default = "a")
+  expect_identical(is.unsorted(non_ascii), is.unsorted(non_ascii[]))
+
+  non_ascii <- sparse_character(c("z", "é"), c(3, 4), 4, default = "a")
+  expect_identical(is.unsorted(non_ascii), is.unsorted(non_ascii[]))
 })
 
 test_that("default argument is working", {
@@ -308,4 +350,28 @@ test_that("printing works #48", {
   expect_snapshot(
     sparse_character("A", 1, 10)[]
   )
+})
+
+test_that("methods work after in-place modification of sparse_character", {
+  x <- sparse_character(c("a", "b"), c(1, 2), 4)
+  x[3] <- "z"
+  expect_identical(x[1:4], c("a", "b", "z", ""))
+  expect_true(is.unsorted(x))
+})
+
+test_that("in-place modification works with resets and NA", {
+  x <- sparse_character("a", 1, 3)
+  x[2] <- NA
+  expect_identical(x[1:3], c("a", NA, ""))
+  expect_identical(sparse_values(x), c("a", NA))
+  expect_identical(sparse_positions(x), 1:2)
+
+  x[1] <- ""
+  expect_identical(x[1:3], c("", NA, ""))
+
+  y <- sparse_character("a", 1, 3)
+  z <- y
+  y[3] <- "b"
+  expect_identical(sparse_values(z), "a")
+  expect_identical(sparse_values(y), c("a", "b"))
 })

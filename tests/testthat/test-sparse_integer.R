@@ -193,6 +193,16 @@ test_that("single subsetting works with sparse_integer()", {
   expect_identical(x_sparse[2.6], x_dense[2.6])
 })
 
+test_that("subsetting one past the end works with sparse_integer()", {
+  x_sparse <- sparse_integer(1L, 3, 3, default = 7L)
+  x_dense <- c(7L, 7L, 1L)
+
+  expect_identical(x_sparse[4], x_dense[4])
+  expect_identical(x_sparse[3:4], x_dense[3:4])
+  expect_error(x_sparse[[4]], "subscript out of bounds")
+  expect_error(x_dense[[4]], "subscript out of bounds")
+})
+
 test_that("multiple subsetting works with sparse_integer()", {
   x_sparse <- sparse_integer(value = c(10, NA, 20), position = c(1, 5, 8), 10)
   x_dense <- c(10L, 0L, 0L, 0L, NA, 0L, 0L, 20L, 0L, 0L)
@@ -260,6 +270,36 @@ test_that("sorting works with sparse_integer()", {
   expect_true(is_sparse_integer(sort(x_sparse)))
 })
 
+test_that("is.unsorted() works with sparse_integer()", {
+  sorted <- sparse_integer(c(1L, 2L), c(3, 4), 4)
+  expect_identical(is.unsorted(sorted), is.unsorted(sorted[]))
+  expect_false(is.unsorted(sorted))
+
+  unsorted <- sparse_integer(c(2L, 1L), c(2, 3), 4)
+  expect_identical(is.unsorted(unsorted), is.unsorted(unsorted[]))
+  expect_true(is.unsorted(unsorted))
+
+  gap <- sparse_integer(c(1L, 2L), c(1, 5), 5, default = 3L)
+  expect_identical(is.unsorted(gap), is.unsorted(gap[]))
+  expect_true(is.unsorted(gap))
+
+  trailing <- sparse_integer(c(1L, 5L), c(1, 2), 10)
+  expect_identical(is.unsorted(trailing), is.unsorted(trailing[]))
+  expect_true(is.unsorted(trailing))
+
+  single <- sparse_integer(5L, 1, 10)
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_true(is.unsorted(single))
+
+  single <- sparse_integer(-1L, 10, 10)
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_true(is.unsorted(single))
+
+  single <- sparse_integer(1L, 10, 10)
+  expect_identical(is.unsorted(single), is.unsorted(single[]))
+  expect_false(is.unsorted(single))
+})
+
 test_that("min method works with sparse_integer()", {
   expect_snapshot(
     res <- min(sparse_integer(integer(), integer(), 0))
@@ -305,6 +345,16 @@ test_that("min method works with sparse_integer()", {
     min(sparse_integer(c(-10, 11:19, NA), 10:20, 1000000000), na.rm = TRUE),
     -10L
   )
+
+  expect_identical(
+    min(sparse_integer(c(5L, 6L), 1:2, 2)),
+    5L
+  )
+
+  expect_snapshot(
+    res <- min(sparse_integer(NA, 1, 1), na.rm = TRUE)
+  )
+  expect_identical(res, Inf)
 })
 
 test_that("max method works with sparse_integer()", {
@@ -352,6 +402,16 @@ test_that("max method works with sparse_integer()", {
     max(sparse_integer(c(-10, 11:19, NA), 10:20, 1000000000), na.rm = TRUE),
     19L
   )
+
+  expect_identical(
+    max(sparse_integer(c(-5L, -6L), 1:2, 2)),
+    -5L
+  )
+
+  expect_snapshot(
+    res <- max(sparse_integer(NA, 1, 1), na.rm = TRUE)
+  )
+  expect_identical(res, -Inf)
 })
 
 test_that("anyNA method works with sparse_integer", {
@@ -370,6 +430,19 @@ test_that("anyNA method works with sparse_integer", {
   expect_true(
     anyNA(sparse_integer(c(-10, 11:19, NA), 10:20, 1000000000))
   )
+})
+
+test_that("methods work after in-place modification of sparse_integer", {
+  x <- sparse_integer(c(1L, 2L), c(1, 2), 5)
+  x[3] <- 100L
+  expect_identical(sum(x), 103L)
+  expect_identical(max(x), 100L)
+  expect_identical(x[1:5], c(1L, 2L, 100L, 0L, 0L))
+  expect_true(is.unsorted(x))
+
+  x <- sparse_integer(c(1L, 2L), c(1, 2), 5)
+  x[3] <- NA
+  expect_true(anyNA(x))
 })
 
 test_that("sum method works with sparse_integer", {
@@ -407,6 +480,29 @@ test_that("sum method works with sparse_integer", {
     sum(sparse_integer(c(1, 54, NA), c(1, 5, 10), 10), na.rm = TRUE),
     55L
   )
+})
+
+test_that("sum method does not overflow with sparse_integer", {
+  x <- sparse_integer(integer(), integer(), 2000000000, default = 2)
+  expect_identical(sum(x), 4e9)
+
+  x <- sparse_integer(5L, 1, 2000000000, default = 2)
+  expect_identical(sum(x), 4000000003)
+
+  x <- sparse_integer(c(2147483647L, 1L), 1:2, 2)
+  expect_identical(sum(x), 2147483648)
+
+  x <- sparse_integer(c(-2147483647L, -2147483647L), 1:2, 2)
+  expect_identical(sum(x), -4294967294)
+
+  x <- sparse_integer(c(2147483647L, 1L), 1:2, 2, default = 3)
+  expect_identical(sum(x), 2147483648)
+
+  x <- sparse_integer(c(-2147483647L, -1L), 1:2, 2)
+  expect_identical(sum(x), -2147483648)
+
+  x <- sparse_integer(c(2147483647L, NA), 1:2, 3)
+  expect_identical(sum(x, na.rm = TRUE), 2147483647L)
 })
 
 test_that("default argument is working", {
@@ -479,4 +575,159 @@ test_that("printing works #48", {
   expect_snapshot(
     sparse_integer(1, 1, 10) + 1
   )
+})
+
+test_that("in-place modification works with non-zero defaults and resets", {
+  x <- sparse_integer(1L, 1, 4, default = 2L)
+  x[3] <- NA
+  expect_true(anyNA(x))
+  expect_identical(min(x, na.rm = TRUE), 1L)
+  expect_identical(max(x, na.rm = TRUE), 2L)
+  expect_identical(sum(x, na.rm = TRUE), 5L)
+  expect_identical(sum(x), NA_integer_)
+
+  x <- sparse_integer(c(1L, 5L), c(1, 2), 5)
+  x[1:2] <- 0L
+  expect_identical(sum(x), 0L)
+  expect_identical(min(x), 0L)
+  expect_identical(max(x), 0L)
+  expect_false(anyNA(x))
+  expect_false(is.unsorted(x))
+})
+
+test_that("in-place modification does not affect copies of sparse_integer", {
+  x <- sparse_integer(c(1L, 2L), c(1, 2), 5)
+  y <- x
+  x[3] <- 9L
+
+  expect_identical(sum(y), 3L)
+  expect_identical(sparse_values(y), c(1L, 2L))
+})
+
+test_that("sparse_multiplication() gives NA with a warning on integer overflow", {
+  x <- sparse_integer(100000L, 1, 3)
+  expect_warning(
+    res <- sparse_multiplication(x, x),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+  expect_identical(sparse_values(res), NA_integer_)
+
+  big <- sparse_integer(.Machine$integer.max, 1, 3)
+  expect_warning(
+    res <- sparse_multiplication(big, big),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+
+  wrap <- sparse_integer(65536L, 1, 3)
+  expect_warning(
+    res <- sparse_multiplication(wrap, wrap),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+
+  expect_warning(
+    res <- sparse_multiplication(sparse_integer(-65536L, 1, 3), wrap),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+})
+
+test_that("sparse_multiplication() overflow works for sparse-dense and dense-dense", {
+  x <- sparse_integer(100000L, 1, 3)
+  y <- c(100000L, 1L, 1L)
+
+  expect_warning(
+    res <- sparse_multiplication(x, y),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+
+  expect_warning(
+    res <- sparse_multiplication(y, x),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+
+  expect_warning(
+    res <- sparse_multiplication(y + 0L, c(100000L, 2L, 3L)),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(res, c(NA_integer_, 2L, 3L))
+})
+
+test_that("sparse_multiplication() does not warn without integer overflow", {
+  x <- sparse_integer(c(46340L, 2L), 1:2, 3)
+  expect_no_warning(res <- sparse_multiplication(x, x))
+  expect_identical(as.integer(res), c(2147395600L, 4L, 0L))
+
+  neg <- sparse_integer(c(-46340L, 46340L), 1:2, 3)
+  expect_no_warning(res <- sparse_multiplication(neg, neg))
+  expect_identical(as.integer(res), c(2147395600L, 2147395600L, 0L))
+
+  expect_no_warning(
+    res <- sparse_multiplication(sparse_integer(NA_integer_, 1, 3), x)
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+})
+
+test_that("sparse_mean() with integer weights warns on overflow", {
+  x <- sparse_integer(c(100000L, 5L), 1:2, 10L)
+  expect_warning(
+    res <- sparse_mean(x, wts = rep(100000L, 10)),
+    "NAs produced by integer overflow"
+  )
+  expect_true(is.na(res))
+})
+
+test_that("sparse_multiplication() treats a product of INT_MIN as overflow", {
+  x <- sparse_integer(-65536L, 1, 3)
+  y <- sparse_integer(32768L, 1, 3)
+
+  expect_warning(
+    res <- sparse_multiplication(x, y),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA_integer_, 0L, 0L))
+})
+
+test_that("sparse_multiplication() handles mixed overflow, NA and finite values", {
+  x <- sparse_integer(c(100000L, 3L, NA, 100000L, 7L), c(1, 2, 3, 4, 6), 7)
+  y <- sparse_integer(c(100000L, 4L, 2L, 100000L, NA), c(1, 2, 3, 4, 7), 7)
+
+  expect_warning(
+    res <- sparse_multiplication(x, y),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(
+    as.integer(res),
+    c(NA, 12L, NA, NA, 0L, 0L, NA)
+  )
+
+  d <- c(100000L, 4L, 2L, 100000L, 0L, 0L, NA)
+  expect_warning(
+    res <- sparse_multiplication(x, d),
+    "NAs produced by integer overflow"
+  )
+  expect_identical(as.integer(res), c(NA, 12L, NA, NA, 0L, 0L, NA))
+})
+
+test_that("sparse_multiplication() warns once for several overflows", {
+  x <- sparse_integer(rep(100000L, 3), 1:3, 4)
+  warnings <- character()
+  withCallingHandlers(
+    sparse_multiplication(x, x),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_identical(warnings, "NAs produced by integer overflow")
+})
+
+test_that("sparse_multiplication() on doubles does not warn on large products", {
+  x <- sparse_double(c(1e200, 2), 1:2, 3)
+  expect_no_warning(res <- sparse_multiplication(x, x))
+  expect_identical(as.numeric(res), c(Inf, 4, 0))
 })
